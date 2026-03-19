@@ -24,7 +24,7 @@ A research-grade implementation of Monte Carlo methods for pricing and calibrati
 
 Under the risk-neutral measure $\mathbb{Q}$, all discounted asset prices are martingales. Option prices are computed as expected discounted payoffs:
 
-$$C_0 = e^{-rT}\,\mathbb{E}^{\mathbb{Q}}\!\left[\max\!\left(A_T - K,\; 0\right)\right]$$
+$$C_0 = e^{-rT}\,\mathbb{E}^{\mathbb{Q}}\left[\max\left(A_T - K,\; 0\right)\right]$$
 
 where $r$ is the continuously compounded risk-free rate, $T$ the maturity, $K$ the strike, and $A_T$ the underlying at expiry.
 
@@ -64,11 +64,11 @@ For two assets this gives explicitly $L = \begin{pmatrix} \sigma_1 & 0 \\ \rho\,
 
 Given $N$ i.i.d. terminal simulations $\{S^{(k)}(T)\}_{k=1}^N$, the **Monte Carlo price** is:
 
-$$\hat{C}_{MC} = e^{-rT}\,\frac{1}{N}\sum_{k=1}^{N} \max\!\left(A_T^{(k)} - K,\; 0\right)$$
+$$\hat{C}_{MC} = e^{-rT}\,\frac{1}{N}\sum_{k=1}^{N} \max\left(A_T^{(k)} - K,\; 0\right)$$
 
 By the Central Limit Theorem, the standard error decays as:
 
-$$\mathrm{SE}(\hat{C}_{MC}) = \frac{\hat{\sigma}_{\text{payoff}}}{\sqrt{N}} = \mathcal{O}\!\left(\frac{1}{\sqrt{N}}\right)$$
+$$\mathrm{SE}(\hat{C}_{MC}) = \frac{\hat{\sigma}_{\text{payoff}}}{\sqrt{N}} = \mathcal{O}\left(\frac{1}{\sqrt{N}}\right)$$
 
 This is the fundamental convergence rate of MC — dimension-independent, but slow. Doubling accuracy requires $4\times$ more paths.
 
@@ -84,7 +84,7 @@ $$m = \frac{1}{N}\sum_{i=1}^{N}\left[\ln S_i(0) + \left(r - \frac{\sigma_i^2}{2}
 
 This yields an **exact Black-Scholes formula** (Gentle, 1993):
 
-$$C_{\text{geo}} = e^{-rT}\!\left[e^{m + v^2/2}\,\Phi(d_1) - K\,\Phi(d_2)\right]$$
+$$C_{\text{geo}} = e^{-rT}\left[e^{m + v^2/2}\,\Phi(d_1) - K\,\Phi(d_2)\right]$$
 
 $$d_{1,2} = \frac{m - \ln K \pm v^2}{v}$$
 
@@ -96,9 +96,9 @@ This solution serves as **ground truth** throughout: the MC engine is validated 
 
 The arithmetic mean $A_T = \frac{1}{N}\sum_i S_i(T)$ is a weighted sum of log-normals — **no closed form exists**. The **Control Variate** technique exploits the high correlation between arithmetic and geometric payoffs on the *same* sample paths:
 
-$$\hat{C}_{CV} = \hat{C}_{MC}^A + c^*\!\left(C_{\text{geo}}^{\text{analytical}} - \hat{C}_{MC}^G\right)$$
+$$\hat{C}_{CV} = \hat{C}_{MC}^A + c^*\left(C_{\text{geo}}^{\text{analytical}} - \hat{C}_{MC}^G\right)$$
 
-$$c^* = \frac{\mathrm{Cov}\!\left(\mathrm{payoff}_A,\, \mathrm{payoff}_G\right)}{\mathrm{Var}\!\left(\mathrm{payoff}_G\right)}$$
+$$c^* = \frac{\mathrm{Cov}\left(\mathrm{payoff}_A,\, \mathrm{payoff}_G\right)}{\mathrm{Var}\left(\mathrm{payoff}_G\right)}$$
 
 The variance reduction factor is $1 - \mathrm{Corr}^2(A_{\text{payoff}},\, G_{\text{payoff}})$, empirically **95–99.5%** for equity baskets.
 
