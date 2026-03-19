@@ -48,7 +48,7 @@ $$dW_i\, dW_j = \rho_{ij}\, dt, \qquad R = (\rho_{ij})_{i,j} \in \mathbb{R}^{N \
 
 Applying Itô's formula to $f(S_i) = \ln S_i$ yields an **exact closed-form solution** — the SDE is integrated analytically, with zero time-stepping error:
 
-$$\ln S_i(T) = \ln S_i(0) + \underbrace{\left(r - \frac{\sigma_i^2}{2}\right)T}_{\text{risk-neutral drift}} + \underbrace{\sigma_i \sqrt{T}\, Z_i}_{\text{diffusion}}$$
+$$\ln S_i(T) = \ln S_i(0) + \left(r - \frac{\sigma_i^2}{2}\right)T + \sigma_i \sqrt{T}\, Z_i$$
 
 The term $-\sigma_i^2/2$ is the **Itô correction**, arising from the quadratic variation $d\langle \ln S_i \rangle = \sigma_i^2\, dt$. Without it the simulation would be biased upward.
 
@@ -56,7 +56,9 @@ The term $-\sigma_i^2/2$ is the **Itô correction**, arising from the quadratic 
 
 $$R = L L^\top, \qquad \mathbf{Z} = L\,\mathbf{Z}_{iid}, \qquad \mathbf{Z}_{iid} \sim \mathcal{N}(\mathbf{0},\, I_N)$$
 
-For two assets this gives explicitly $L = \begin{pmatrix} \sigma_1 & 0 \\ \rho\,\sigma_2 & \sigma_2\sqrt{1-\rho^2} \end{pmatrix}$.
+For two assets this gives explicitly:
+
+$$L = \begin{pmatrix} \sigma_1 & 0 \\ \rho\,\sigma_2 & \sigma_2\sqrt{1-\rho^2} \end{pmatrix}$$
 
 ---
 
