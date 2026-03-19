@@ -20,71 +20,111 @@ A research-grade implementation of Monte Carlo methods for pricing and calibrati
 
 ## Scientific Background
 
-### Multi-Dimensional Black-Scholes
+### 1. Risk-Neutral Pricing Framework
 
-Under the risk-neutral measure, N correlated assets follow Geometric Brownian Motion:
+Under the risk-neutral measure $\mathbb{Q}$, all discounted asset prices are martingales. Option prices are computed as expected discounted payoffs:
 
-```
-dSᵢ = r Sᵢ dt + σᵢ Sᵢ dWᵢ,    dWᵢ dWⱼ = ρᵢⱼ dt
-```
+$$C_0 = e^{-rT}\,\mathbb{E}^{\mathbb{Q}}\!\left[\max\!\left(A_T - K,\; 0\right)\right]$$
 
-The terminal log-prices are simulated exactly (no time-stepping error) via Cholesky decomposition of the correlation matrix R = L Lᵀ:
+where $r$ is the continuously compounded risk-free rate, $T$ the maturity, $K$ the strike, and $A_T$ the underlying at expiry.
 
-```
-log Sᵢ(T) = log Sᵢ(0) + (r − σᵢ²/2) T + σᵢ √T Zᵢ
-Z = L Z_iid,    Z_iid ~ N(0, I)
-```
+---
 
-### Geometric Basket — Closed-Form Reference
+### 2. Multi-Dimensional Geometric Brownian Motion
 
-The geometric mean G_T = (∏ᵢ Sᵢ(T))^(1/N) is itself log-normal:
+Under $\mathbb{Q}$, $N$ correlated assets follow the **multi-dimensional Black-Scholes SDE**:
 
-```
-log G_T ~ N(m, v²)
+$$dS_i = r\, S_i\, dt + \sigma_i\, S_i\, dW_i^{\mathbb{Q}}, \qquad i = 1, \ldots, N$$
 
-m  = (1/N) Σᵢ [ log Sᵢ(0) + (r − σᵢ²/2) T ]
-v² = (T / N²) σᵀ R σ
-```
+**Brownian correlation structure:**
 
-This admits an exact Black-Scholes formula (Gentle, 1993):
+$$dW_i\, dW_j = \rho_{ij}\, dt, \qquad R = (\rho_{ij})_{i,j} \in \mathbb{R}^{N \times N}, \quad R \succ 0$$
 
-```
-C_geo = e^{−rT} [ e^{m + v²/2} Φ(d₁) − K Φ(d₂) ]
-d₁ = (m − ln K + v²) / v,    d₂ = d₁ − v
-```
+**Model assumptions (GBM):** log-returns are normally distributed and i.i.d. across non-overlapping intervals; volatilities $\sigma_i$ and correlations $\rho_{ij}$ are constant; markets are complete, frictionless, and allow continuous trading.
 
-This solution is used throughout as **ground truth** for validating the Monte Carlo engine.
+---
 
-### Arithmetic Basket — No Closed Form
+### 3. Exact Numerical Scheme — Itô's Lemma
 
-The arithmetic mean A_T = (1/N) Σᵢ Sᵢ(T) is a sum of log-normals, which has no closed-form distribution. Monte Carlo is the standard numerical approach. The **Control Variate** technique exploits the high correlation between geometric and arithmetic payoffs on the same sample:
+Applying Itô's formula to $f(S_i) = \ln S_i$ yields an **exact closed-form solution** — the SDE is integrated analytically, with zero time-stepping error:
 
-```
-Â_cv = Â_MC + c* · (C_geo_analytical − Ĝ_MC)
-c*   = Cov(A_payoff, G_payoff) / Var(G_payoff)
-```
+$$\ln S_i(T) = \ln S_i(0) + \underbrace{\left(r - \frac{\sigma_i^2}{2}\right)T}_{\text{risk-neutral drift}} + \underbrace{\sigma_i \sqrt{T}\, Z_i}_{\text{diffusion}}$$
 
-This reduces estimator variance by a factor of 1 − Corr²(A, G), typically 95–99%.
+The term $-\sigma_i^2/2$ is the **Itô correction**, arising from the quadratic variation $d\langle \ln S_i \rangle = \sigma_i^2\, dt$. Without it the simulation would be biased upward.
 
-### Implied Correlation — Inverse Problem
+**Cholesky decomposition** generates correlated Gaussian increments from i.i.d. samples:
 
-The forward problem maps a correlation structure to an option price. Under the **equicorrelation model** (R_ij = ρ for i≠j, R_ii = 1), the inverse problem reduces to a scalar equation:
+$$R = L L^\top, \qquad \mathbf{Z} = L\,\mathbf{Z}_{iid}, \qquad \mathbf{Z}_{iid} \sim \mathcal{N}(\mathbf{0},\, I_N)$$
 
-```
-C_market = C(ρ)    →    find ρ ∈ (−1/(N−1), 1)
-```
+For two assets this gives explicitly $L = \begin{pmatrix} \sigma_1 & 0 \\ \rho\,\sigma_2 & \sigma_2\sqrt{1-\rho^2} \end{pmatrix}$.
 
-Solved via Brent's method on a single strike, or L-BFGS-B least squares across a strike grid. The multi-strike formulation is over-determined and significantly more robust to noise.
+---
 
-### Noise Sensitivity
+### 4. Monte Carlo Estimator and Convergence
 
-In practice, observed option prices carry bid-ask noise. The noise model used is:
+Given $N$ i.i.d. terminal simulations $\{S^{(k)}(T)\}_{k=1}^N$, the **Monte Carlo price** is:
 
-```
-C_noisy_k = C_true_k · (1 + σ_noise · εₖ),    εₖ ~ N(0, 1)
-```
+$$\hat{C}_{MC} = e^{-rT}\,\frac{1}{N}\sum_{k=1}^{N} \max\!\left(A_T^{(k)} - K,\; 0\right)$$
 
-By varying σ_noise and repeating the calibration over many realizations, we obtain the distribution of the recovered ρ and characterize bias, standard deviation, and RMSE as functions of noise level.
+By the Central Limit Theorem, the standard error decays as:
+
+$$\mathrm{SE}(\hat{C}_{MC}) = \frac{\hat{\sigma}_{\text{payoff}}}{\sqrt{N}} = \mathcal{O}\!\left(\frac{1}{\sqrt{N}}\right)$$
+
+This is the fundamental convergence rate of MC — dimension-independent, but slow. Doubling accuracy requires $4\times$ more paths.
+
+---
+
+### 5. Geometric Basket — Closed-Form Reference
+
+The geometric mean $G_T = \left(\prod_{i=1}^N S_i(T)\right)^{1/N}$ is itself log-normal:
+
+$$\ln G_T \sim \mathcal{N}(m,\, v^2)$$
+
+$$m = \frac{1}{N}\sum_{i=1}^{N}\left[\ln S_i(0) + \left(r - \frac{\sigma_i^2}{2}\right)T\right], \qquad v^2 = \frac{T}{N^2}\,\boldsymbol{\sigma}^\top R\,\boldsymbol{\sigma}$$
+
+This yields an **exact Black-Scholes formula** (Gentle, 1993):
+
+$$C_{\text{geo}} = e^{-rT}\!\left[e^{m + v^2/2}\,\Phi(d_1) - K\,\Phi(d_2)\right]$$
+
+$$d_{1,2} = \frac{m - \ln K \pm v^2}{v}$$
+
+This solution serves as **ground truth** throughout: the MC engine is validated by verifying that $\hat{C}_{MC}^{\text{geo}} \to C_{\text{geo}}$ at rate $\mathcal{O}(1/\sqrt{N})$.
+
+---
+
+### 6. Arithmetic Basket and Control Variate
+
+The arithmetic mean $A_T = \frac{1}{N}\sum_i S_i(T)$ is a weighted sum of log-normals — **no closed form exists**. The **Control Variate** technique exploits the high correlation between arithmetic and geometric payoffs on the *same* sample paths:
+
+$$\hat{C}_{CV} = \hat{C}_{MC}^A + c^*\!\left(C_{\text{geo}}^{\text{analytical}} - \hat{C}_{MC}^G\right)$$
+
+$$c^* = \frac{\mathrm{Cov}\!\left(\mathrm{payoff}_A,\, \mathrm{payoff}_G\right)}{\mathrm{Var}\!\left(\mathrm{payoff}_G\right)}$$
+
+The variance reduction factor is $1 - \mathrm{Corr}^2(A_{\text{payoff}},\, G_{\text{payoff}})$, empirically **95–99.5%** for equity baskets.
+
+---
+
+### 7. Implied Correlation — Inverse Problem
+
+The forward problem maps a correlation structure $\rho$ to an option price $C(\rho)$. Under the **equicorrelation model** ($\rho_{ij} = \rho$ for $i \ne j$, $\rho_{ii} = 1$), the inverse problem reduces to a scalar equation:
+
+$$C_{\text{market}} = C(\rho) \quad \Longrightarrow \quad \text{find } \rho \in \left(-\tfrac{1}{N-1},\; 1\right)$$
+
+Solved via **Brent's method** (single strike) or **L-BFGS-B least squares** across a strike grid $\{K_k\}$:
+
+$$\hat{\rho} = \arg\min_{\rho}\, \sum_{k} \left(C_{\text{market}}(K_k) - C(\rho;\, K_k)\right)^2$$
+
+The multi-strike formulation is over-determined and significantly more robust to noise.
+
+---
+
+### 8. Noise Sensitivity
+
+Observed option prices carry bid-ask spread noise. The perturbation model is:
+
+$$C_k^{\text{noisy}} = C_k^{\text{true}} \cdot \left(1 + \sigma_{\text{noise}}\, \varepsilon_k\right), \qquad \varepsilon_k \overset{\text{i.i.d.}}{\sim} \mathcal{N}(0, 1)$$
+
+By varying $\sigma_{\text{noise}}$ and repeating the inversion over many realisations, we characterise bias, standard deviation, and RMSE of the recovered $\hat{\rho}$ as a function of noise level.
 
 ---
 

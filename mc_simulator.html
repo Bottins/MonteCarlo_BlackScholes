@@ -1,0 +1,1129 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Monte Carlo Black-Scholes — Interactive Simulator</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<style>
+:root[data-theme="dark"] {
+  --bg:       #07070f;
+  --bg2:      #0d0d1c;
+  --bg3:      #12122a;
+  --border:   #1e1e3a;
+  --text:     #d0d0f0;
+  --text2:    #7070a0;
+  --cyan:     #00eeff;
+  --magenta:  #ff2d78;
+  --green:    #00ff88;
+  --yellow:   #ffd700;
+  --purple:   #bb44ff;
+  --glow-c:   0 0 8px #00eeff66, 0 0 20px #00eeff22;
+  --glow-m:   0 0 8px #ff2d7866, 0 0 20px #ff2d7822;
+  --glow-g:   0 0 8px #00ff8866, 0 0 20px #00ff8822;
+  --card-glow: 0 0 0 1px #1e1e3a, 0 4px 24px #00000088;
+}
+:root[data-theme="light"] {
+  --bg:       #f2f2fa;
+  --bg2:      #ffffff;
+  --bg3:      #eaeaf5;
+  --border:   #ccccdd;
+  --text:     #1a1a30;
+  --text2:    #666680;
+  --cyan:     #0077cc;
+  --magenta:  #cc0055;
+  --green:    #007744;
+  --yellow:   #886600;
+  --purple:   #6600cc;
+  --glow-c:   0 2px 6px #0077cc33;
+  --glow-m:   0 2px 6px #cc005533;
+  --glow-g:   0 2px 6px #00774433;
+  --card-glow: 0 0 0 1px #ccccdd, 0 4px 16px #00000018;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+/* ── HEADER ── */
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 24px;
+  background: var(--bg2);
+  border-bottom: 1px solid var(--border);
+  position: sticky; top: 0; z-index: 200;
+}
+.hdr-left h1 {
+  font-size: 1.1rem;
+  font-weight: 800;
+  letter-spacing: .06em;
+  color: var(--cyan);
+  text-shadow: var(--glow-c);
+}
+.hdr-left p { font-size: .72rem; color: var(--text2); margin-top: 1px; }
+.hdr-right { display: flex; gap: 10px; align-items: center; }
+.theme-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text2);
+  padding: 6px 14px;
+  border-radius: 20px;
+  cursor: pointer;
+  font-size: .75rem;
+  transition: all .2s;
+}
+.theme-btn:hover { border-color: var(--cyan); color: var(--cyan); }
+
+/* ── TABS ── */
+.tabs {
+  display: flex;
+  background: var(--bg2);
+  border-bottom: 1px solid var(--border);
+  padding: 0 24px;
+}
+.tab {
+  padding: 10px 18px;
+  font-size: .8rem;
+  color: var(--text2);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: all .2s;
+  user-select: none;
+}
+.tab.active { color: var(--cyan); border-bottom-color: var(--cyan); }
+.tab:hover:not(.active) { color: var(--text); }
+
+/* ── LAYOUT ── */
+.app {
+  display: grid;
+  grid-template-columns: 270px 1fr;
+  min-height: calc(100vh - 94px);
+}
+
+/* ── SIDEBAR ── */
+.sidebar {
+  background: var(--bg2);
+  border-right: 1px solid var(--border);
+  padding: 18px 16px;
+  overflow-y: auto;
+}
+.sec-label {
+  font-size: .65rem;
+  font-weight: 700;
+  letter-spacing: .15em;
+  text-transform: uppercase;
+  color: var(--text2);
+  margin-bottom: 10px;
+  margin-top: 4px;
+}
+.param {
+  margin-bottom: 12px;
+}
+.param-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 4px;
+}
+.param-name { font-size: .78rem; }
+.param-name em {
+  font-style: italic;
+  color: var(--cyan);
+  font-size: .88rem;
+  text-shadow: var(--glow-c);
+}
+.param-val {
+  font-family: 'Courier New', monospace;
+  font-size: .82rem;
+  color: var(--green);
+  min-width: 52px;
+  text-align: right;
+}
+input[type=range] {
+  -webkit-appearance: none;
+  width: 100%;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--border);
+  outline: none;
+  cursor: pointer;
+}
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 13px; height: 13px;
+  border-radius: 50%;
+  background: var(--cyan);
+  cursor: pointer;
+  box-shadow: var(--glow-c);
+}
+.sep { border: none; border-top: 1px solid var(--border); margin: 14px 0; }
+.btn {
+  width: 100%;
+  padding: 10px;
+  background: transparent;
+  border: 1px solid;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: .8rem;
+  font-weight: 700;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  transition: all .2s;
+  margin-bottom: 8px;
+}
+.btn-cyan  { border-color: var(--cyan);    color: var(--cyan);    box-shadow: var(--glow-c); }
+.btn-mag   { border-color: var(--magenta); color: var(--magenta); box-shadow: var(--glow-m); }
+.btn-cyan:hover  { background: var(--cyan);    color: var(--bg); }
+.btn-mag:hover   { background: var(--magenta); color: var(--bg); }
+.btn.loading { opacity: .6; cursor: wait; pointer-events: none; }
+
+/* ── MAIN ── */
+.main {
+  padding: 20px 22px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* ── CARD ── */
+.card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px 18px;
+  box-shadow: var(--card-glow);
+}
+.card-title {
+  font-size: .68rem;
+  font-weight: 700;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--text2);
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.badge {
+  display: inline-block;
+  padding: 1px 7px;
+  border-radius: 4px;
+  font-size: .63rem;
+  font-weight: 700;
+  letter-spacing: .06em;
+}
+.badge-c { background: #00eeff18; color: var(--cyan);    border: 1px solid #00eeff44; }
+.badge-m { background: #ff2d7818; color: var(--magenta); border: 1px solid #ff2d7844; }
+.badge-g { background: #00ff8818; color: var(--green);   border: 1px solid #00ff8844; }
+
+/* ── EQUATIONS GRID ── */
+.eq-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 12px;
+}
+.eq-card {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 14px;
+}
+.eq-tag {
+  font-size: .62rem;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--magenta);
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+.eq-body {
+  font-size: .85rem;
+  line-height: 2;
+  overflow-x: auto;
+}
+.eq-note {
+  font-size: .7rem;
+  color: var(--text2);
+  margin-top: 7px;
+  line-height: 1.55;
+}
+/* KaTeX override */
+.katex { font-size: 1em !important; }
+
+/* ── RESULTS ── */
+.results-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+}
+.res-card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px 14px;
+  text-align: center;
+  box-shadow: var(--card-glow);
+}
+.res-lbl {
+  font-size: .63rem;
+  text-transform: uppercase;
+  letter-spacing: .1em;
+  color: var(--text2);
+  margin-bottom: 5px;
+}
+.res-val {
+  font-family: 'Courier New', monospace;
+  font-size: 1.35rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+.res-val.c { color: var(--cyan);    text-shadow: var(--glow-c); }
+.res-val.m { color: var(--magenta); text-shadow: var(--glow-m); }
+.res-val.g { color: var(--green);   text-shadow: var(--glow-g); }
+.res-val.y { color: var(--yellow); }
+.res-sub { font-size: .67rem; color: var(--text2); margin-top: 3px; }
+
+/* ── CHARTS ── */
+.charts-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+.chart-full { grid-column: 1 / -1; }
+canvas {
+  display: block;
+  width: 100%;
+  border-radius: 6px;
+  background: var(--bg3);
+}
+
+/* ── SPINNER ── */
+.spin {
+  display: inline-block;
+  width: 10px; height: 10px;
+  border: 2px solid transparent;
+  border-top-color: currentColor;
+  border-radius: 50%;
+  animation: rot .5s linear infinite;
+  vertical-align: middle;
+  margin-right: 5px;
+}
+@keyframes rot { to { transform: rotate(360deg); } }
+
+/* ── INFO BOX ── */
+.info-box {
+  background: var(--bg3);
+  border-left: 3px solid var(--green);
+  border-radius: 0 6px 6px 0;
+  padding: 9px 12px;
+  font-size: .73rem;
+  color: var(--text2);
+  line-height: 1.6;
+  margin-top: 10px;
+}
+.info-box strong { color: var(--green); }
+
+@media (max-width: 880px) {
+  .app { grid-template-columns: 1fr; }
+  .sidebar { border-right: none; border-bottom: 1px solid var(--border); }
+  .charts-row { grid-template-columns: 1fr; }
+  .results-row { grid-template-columns: repeat(2, 1fr); }
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="hdr-left">
+    <h1>⟨ Monte Carlo Black-Scholes ⟩</h1>
+    <p>Interactive Simulator — Educational / Research</p>
+  </div>
+  <div class="hdr-right">
+    <button class="theme-btn" onclick="toggleTheme()">☀ / ☾ Theme</button>
+  </div>
+</header>
+
+<div class="tabs">
+  <div class="tab active" onclick="switchTab(0,this)">European Call (1 asset)</div>
+  <div class="tab" onclick="switchTab(1,this)">Basket Option (2 assets)</div>
+</div>
+
+<div class="app">
+  <!-- ── SIDEBAR ── -->
+  <div class="sidebar">
+    <div class="sec-label">Asset Parameters</div>
+
+    <div class="param">
+      <div class="param-row">
+        <span class="param-name"><em>S₀</em> — Spot price</span>
+        <span class="param-val" id="v-S0">100</span>
+      </div>
+      <input type="range" id="s-S0" min="50" max="300" step="1" value="100"
+             oninput="setP('S0',this.value,'v-S0',v=>v.toFixed(0))">
+    </div>
+
+    <div class="param">
+      <div class="param-row">
+        <span class="param-name"><em>K</em> — Strike price</span>
+        <span class="param-val" id="v-K">100</span>
+      </div>
+      <input type="range" id="s-K" min="50" max="300" step="1" value="100"
+             oninput="setP('K',this.value,'v-K',v=>v.toFixed(0))">
+    </div>
+
+    <div class="param">
+      <div class="param-row">
+        <span class="param-name"><em>T</em> — Maturity (yr)</span>
+        <span class="param-val" id="v-T">1.00</span>
+      </div>
+      <input type="range" id="s-T" min="0.1" max="3" step="0.05" value="1"
+             oninput="setP('T',this.value,'v-T',v=>v.toFixed(2))">
+    </div>
+
+    <div class="param">
+      <div class="param-row">
+        <span class="param-name"><em>r</em> — Risk-free rate</span>
+        <span class="param-val" id="v-r">5.0%</span>
+      </div>
+      <input type="range" id="s-r" min="0" max="0.20" step="0.001" value="0.05"
+             oninput="setP('r',this.value,'v-r',v=>(v*100).toFixed(1)+'%')">
+    </div>
+
+    <div class="param">
+      <div class="param-row">
+        <span class="param-name"><em>σ₁</em> — Volatility</span>
+        <span class="param-val" id="v-s1">20.0%</span>
+      </div>
+      <input type="range" id="s-s1" min="0.05" max="1" step="0.01" value="0.2"
+             oninput="setP('s1',this.value,'v-s1',v=>(v*100).toFixed(1)+'%')">
+    </div>
+
+    <!-- basket only -->
+    <div id="basket-extra" style="display:none">
+      <div class="param">
+        <div class="param-row">
+          <span class="param-name"><em>σ₂</em> — Vol asset 2</span>
+          <span class="param-val" id="v-s2">25.0%</span>
+        </div>
+        <input type="range" id="s-s2" min="0.05" max="1" step="0.01" value="0.25"
+               oninput="setP('s2',this.value,'v-s2',v=>(v*100).toFixed(1)+'%')">
+      </div>
+      <div class="param">
+        <div class="param-row">
+          <span class="param-name"><em>ρ</em> — Correlation</span>
+          <span class="param-val" id="v-rho">0.50</span>
+        </div>
+        <input type="range" id="s-rho" min="-0.99" max="0.99" step="0.01" value="0.5"
+               oninput="setP('rho',this.value,'v-rho',v=>(+v).toFixed(2))">
+      </div>
+    </div>
+
+    <hr class="sep">
+    <div class="sec-label">Simulation</div>
+
+    <div class="param">
+      <div class="param-row">
+        <span class="param-name"><em>N</em> — MC paths</span>
+        <span class="param-val" id="v-N">10 000</span>
+      </div>
+      <input type="range" id="s-N" min="500" max="200000" step="500" value="10000"
+             oninput="setP('N',this.value,'v-N',v=>v>=1000?(v/1000).toFixed(0)+'\u202f000':v)">
+    </div>
+
+    <div class="param">
+      <div class="param-row">
+        <span class="param-name">Paths shown (chart)</span>
+        <span class="param-val" id="v-ns">30</span>
+      </div>
+      <input type="range" id="s-ns" min="5" max="120" step="5" value="30"
+             oninput="setP('ns',this.value,'v-ns',v=>+v)">
+    </div>
+
+    <div class="param">
+      <div class="param-row">
+        <span class="param-name">Time steps (path)</span>
+        <span class="param-val" id="v-st">100</span>
+      </div>
+      <input type="range" id="s-st" min="20" max="500" step="10" value="100"
+             oninput="setP('st',this.value,'v-st',v=>+v)">
+    </div>
+
+    <hr class="sep">
+    <button class="btn btn-cyan" id="run-btn" onclick="runSim()">▶ Run Simulation</button>
+    <button class="btn btn-mag"  id="conv-btn" onclick="runConv()">↗ Convergence Plot</button>
+  </div>
+
+  <!-- ── MAIN ── -->
+  <div class="main">
+
+    <!-- equations -->
+    <div class="card">
+      <div class="card-title">
+        Mathematical Framework
+        <span class="badge badge-c" id="eq-badge">Black-Scholes</span>
+      </div>
+      <div class="eq-grid" id="eq-grid"></div>
+    </div>
+
+    <!-- results -->
+    <div class="results-row">
+      <div class="res-card">
+        <div class="res-lbl" id="lbl-mc">MC Price</div>
+        <div class="res-val c" id="r-mc">—</div>
+        <div class="res-sub" id="r-se">± —</div>
+      </div>
+      <div class="res-card">
+        <div class="res-lbl" id="lbl-bs">Analytical (BS)</div>
+        <div class="res-val m" id="r-bs">—</div>
+        <div class="res-sub" id="sub-bs">closed-form</div>
+      </div>
+      <div class="res-card">
+        <div class="res-lbl" id="lbl-err">Relative Error</div>
+        <div class="res-val g" id="r-err">—</div>
+        <div class="res-sub" id="sub-err">|MC − BS| / BS</div>
+      </div>
+      <div class="res-card">
+        <div class="res-lbl">Std Error</div>
+        <div class="res-val y" id="r-std">—</div>
+        <div class="res-sub">σ<sub>payoff</sub> / √N</div>
+      </div>
+    </div>
+
+    <!-- path chart -->
+    <div class="card">
+      <div class="card-title">
+        GBM Paths — Geometric Brownian Motion
+        <span class="badge badge-c">S(t) trajectories</span>
+      </div>
+      <canvas id="c-paths"></canvas>
+    </div>
+
+    <!-- dist + conv -->
+    <div class="charts-row">
+      <div class="card">
+        <div class="card-title">
+          Terminal Distribution S(T)
+          <span class="badge badge-g">histogram</span>
+        </div>
+        <canvas id="c-dist"></canvas>
+        <div class="info-box">
+          <strong>Cyan bars</strong> = in-the-money paths (S_T &gt; K). Grey bars = OTM (payoff = 0).
+          The dashed line marks the strike K.
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">
+          MC Convergence
+          <span class="badge badge-m">O(1/√N)</span>
+        </div>
+        <canvas id="c-conv"></canvas>
+        <div class="info-box" id="conv-hint">
+          Press <strong>↗ Convergence Plot</strong> to compute the MC price across multiple N
+          values and verify the theoretical O(1/√N) error decay.
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /main -->
+</div><!-- /app -->
+
+<!-- KaTeX -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
+
+<script>
+// ─────────────────────────────────────────────────────────────
+// STATE
+// ─────────────────────────────────────────────────────────────
+const P = { S0:100, K:100, T:1, r:0.05, s1:0.2, s2:0.25, rho:0.5, N:10000, ns:30, st:100 };
+let TAB = 0;
+let lastST = null, lastPaths = null;
+
+// ─────────────────────────────────────────────────────────────
+// PARAM UPDATE
+// ─────────────────────────────────────────────────────────────
+function setP(key, raw, labelId, fmt) {
+  P[key] = parseFloat(raw);
+  document.getElementById(labelId).textContent = fmt(P[key]);
+}
+
+// ─────────────────────────────────────────────────────────────
+// THEME
+// ─────────────────────────────────────────────────────────────
+function toggleTheme() {
+  const h = document.documentElement;
+  h.dataset.theme = h.dataset.theme === 'dark' ? 'light' : 'dark';
+  if (lastPaths) drawPaths(lastPaths);
+  if (lastST)   drawDist(lastST);
+}
+
+// ─────────────────────────────────────────────────────────────
+// TABS
+// ─────────────────────────────────────────────────────────────
+function switchTab(idx, el) {
+  TAB = idx;
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('basket-extra').style.display = idx ? 'block' : 'none';
+  buildEquations();
+}
+
+// ─────────────────────────────────────────────────────────────
+// MATH UTILS
+// ─────────────────────────────────────────────────────────────
+function normCDF(x) {
+  const a1=.254829592, a2=-.284496736, a3=1.421413741, a4=-1.453152027, a5=1.061405429, p=.3275911;
+  const sign = x < 0 ? -1 : 1;
+  x = Math.abs(x) / Math.SQRT2;
+  const t = 1 / (1 + p*x);
+  const y = 1 - (((((a5*t+a4)*t+a3)*t+a2)*t+a1)*t * Math.exp(-x*x));
+  return .5*(1 + sign*y);
+}
+
+function bsCall(S, K, T, r, sig) {
+  if (T <= 0) return Math.max(S-K, 0);
+  const d1 = (Math.log(S/K) + (r + .5*sig*sig)*T) / (sig*Math.sqrt(T));
+  const d2 = d1 - sig*Math.sqrt(T);
+  return S*normCDF(d1) - K*Math.exp(-r*T)*normCDF(d2);
+}
+
+function boxMuller() {
+  const u1 = Math.random()+1e-15, u2 = Math.random();
+  return Math.sqrt(-2*Math.log(u1)) * Math.cos(2*Math.PI*u2);
+}
+
+// ─────────────────────────────────────────────────────────────
+// SIMULATION — SINGLE ASSET
+// ─────────────────────────────────────────────────────────────
+function simSingle() {
+  const {S0,K,T,r,s1,N,ns,st} = P;
+  const dt = T/st;
+  const drift_dt = (r - .5*s1*s1)*dt;
+  const vol_dt   = s1*Math.sqrt(dt);
+
+  // visible paths (with time steps, for chart)
+  const paths = [];
+  for (let i = 0; i < ns; i++) {
+    const path = [S0]; let S = S0;
+    for (let j = 0; j < st; j++) {
+      S *= Math.exp(drift_dt + vol_dt*boxMuller());
+      path.push(S);
+    }
+    paths.push(path);
+  }
+
+  // pricing: exact terminal simulation
+  const sqT = Math.sqrt(T);
+  const drift = (r - .5*s1*s1)*T;
+  const ST = new Float64Array(N);
+  let sum=0, sum2=0;
+  for (let i = 0; i < N; i++) {
+    ST[i] = S0*Math.exp(drift + s1*sqT*boxMuller());
+    const pf = Math.max(ST[i]-K, 0);
+    sum += pf; sum2 += pf*pf;
+  }
+  const disc = Math.exp(-r*T);
+  const mc   = disc*sum/N;
+  const v    = sum2/N - (sum/N)**2;
+  const se   = disc*Math.sqrt(v/N);
+  const bs   = bsCall(S0,K,T,r,s1);
+  return {mc, se, bs, ST, paths};
+}
+
+// ─────────────────────────────────────────────────────────────
+// SIMULATION — BASKET (2 ASSETS)
+// ─────────────────────────────────────────────────────────────
+function simBasket() {
+  const {S0,K,T,r,s1,s2,rho,N,ns,st} = P;
+  // Cholesky:  W_corr = L * Z_iid
+  // L = [[s1, 0], [rho*s2, s2*sqrt(1-rho^2)]]
+  const L00=s1, L10=rho*s2, L11=s2*Math.sqrt(1-rho*rho);
+  const dt = T/st;
+  const d1_dt = (r-.5*s1*s1)*dt, d2_dt = (r-.5*s2*s2)*dt;
+  const sqdt = Math.sqrt(dt);
+
+  const paths = [];
+  for (let i = 0; i < ns; i++) {
+    let A=S0, B=S0;
+    const path = [(A+B)/2];
+    for (let j = 0; j < st; j++) {
+      const z1=boxMuller(), z2=boxMuller();
+      A *= Math.exp(d1_dt + sqdt*(L00*z1));
+      B *= Math.exp(d2_dt + sqdt*(L10*z1 + L11*z2));
+      path.push((A+B)/2);
+    }
+    paths.push(path);
+  }
+
+  // pricing — arithmetic AND geometric in the same loop (shared paths)
+  const sqT = Math.sqrt(T);
+  const dr1=(r-.5*s1*s1)*T, dr2=(r-.5*s2*s2)*T;
+  const ST = new Float64Array(N);
+  // arithmetic basket
+  let sumA=0, sum2A=0;
+  // geometric basket MC (for validation vs analytical)
+  let sumG=0, sum2G=0;
+  for (let i = 0; i < N; i++) {
+    const z1=boxMuller(), z2=boxMuller();
+    const S1T = S0*Math.exp(dr1 + sqT*(L00*z1));
+    const S2T = S0*Math.exp(dr2 + sqT*(L10*z1+L11*z2));
+    const arith = (S1T+S2T)/2;
+    const geo   = Math.sqrt(S1T*S2T);       // geometric mean
+    ST[i] = arith;
+    const pfA = Math.max(arith-K, 0);
+    const pfG = Math.max(geo-K,   0);
+    sumA += pfA; sum2A += pfA*pfA;
+    sumG += pfG; sum2G += pfG*pfG;
+  }
+  const disc = Math.exp(-r*T);
+  // arithmetic basket MC
+  const mc  = disc*sumA/N;
+  const vA  = sum2A/N - (sumA/N)**2;
+  const se  = disc*Math.sqrt(vA/N);
+  // geometric basket MC
+  const mcGeo  = disc*sumG/N;
+  const vG     = sum2G/N - (sumG/N)**2;
+  const seGeo  = disc*Math.sqrt(vG/N);
+  // geometric basket analytical (exact BS formula with effective vol)
+  const sigG = Math.sqrt(.5*(s1*s1 + s2*s2 + 2*rho*s1*s2));
+  const bsGeo = bsCall(S0, K, T, r, sigG);
+  return {mc, se, mcGeo, seGeo, bsGeo, ST, paths};
+}
+
+// ─────────────────────────────────────────────────────────────
+// RUN SIMULATION
+// ─────────────────────────────────────────────────────────────
+function runSim() {
+  const btn = document.getElementById('run-btn');
+  btn.innerHTML = '<span class="spin"></span>Running…';
+  btn.classList.add('loading');
+  setTimeout(() => {
+    if (TAB === 0) {
+      // ── SINGLE ASSET ──
+      const {mc, se, bs, ST, paths} = simSingle();
+      document.getElementById('lbl-mc').textContent  = 'MC Price';
+      document.getElementById('lbl-bs').textContent  = 'Analytical (BS)';
+      document.getElementById('sub-bs').textContent  = 'closed-form';
+      document.getElementById('lbl-err').textContent = 'Relative Error';
+      document.getElementById('sub-err').textContent = '|MC − BS| / BS';
+      document.getElementById('r-mc').textContent  = mc.toFixed(4);
+      document.getElementById('r-se').textContent  = '± '+se.toFixed(4);
+      document.getElementById('r-bs').textContent  = bs.toFixed(4);
+      const re = Math.abs(mc-bs)/(Math.abs(bs)+1e-12);
+      document.getElementById('r-err').textContent = (re*100).toFixed(3)+'%';
+      document.getElementById('r-std').textContent = se.toFixed(4);
+      lastST = ST; lastPaths = paths;
+    } else {
+      // ── BASKET ──
+      // mc      = arithmetic basket MC price  (no closed form → MC is the price)
+      // mcGeo   = geometric basket MC price   (used for validation)
+      // bsGeo   = geometric basket BS exact   (ground truth for the MC engine)
+      // error   = |mcGeo − bsGeo| / bsGeo    (actual MC estimation error)
+      const {mc, se, mcGeo, seGeo, bsGeo, ST, paths} = simBasket();
+      document.getElementById('lbl-mc').textContent  = 'Arith. Basket MC';
+      document.getElementById('lbl-bs').textContent  = 'Geo. Basket (BS)';
+      document.getElementById('sub-bs').textContent  = 'analytical reference';
+      document.getElementById('lbl-err').textContent = 'MC Error (Geo)';
+      document.getElementById('sub-err').textContent = '|mcGeo − BS| / BS';
+      document.getElementById('r-mc').textContent  = mc.toFixed(4);
+      document.getElementById('r-se').textContent  = '± '+se.toFixed(4);
+      document.getElementById('r-bs').textContent  = bsGeo.toFixed(4);
+      const re = Math.abs(mcGeo-bsGeo)/(Math.abs(bsGeo)+1e-12);
+      document.getElementById('r-err').textContent = (re*100).toFixed(3)+'%';
+      document.getElementById('r-std').textContent = seGeo.toFixed(4);
+      lastST = ST; lastPaths = paths;
+    }
+    drawPaths(lastPaths);
+    drawDist(lastST);
+    btn.innerHTML = '▶ Run Simulation';
+    btn.classList.remove('loading');
+  }, 10);
+}
+
+// ─────────────────────────────────────────────────────────────
+// CONVERGENCE
+// ─────────────────────────────────────────────────────────────
+function runConv() {
+  const btn = document.getElementById('conv-btn');
+  btn.innerHTML = '<span class="spin"></span>Computing…';
+  btn.classList.add('loading');
+  setTimeout(() => {
+    const {S0,K,T,r,s1} = P;
+    const Ns = [500,1000,2000,5000,10000,20000,50000,100000,200000];
+    const disc = Math.exp(-r*T);
+    const drift= (r-.5*s1*s1)*T;
+    const sqT  = Math.sqrt(T);
+    const bs   = bsCall(S0,K,T,r,s1);
+    const prices=[], errs=[];
+    for (const n of Ns) {
+      let s=0, s2=0;
+      for (let i=0;i<n;i++){
+        const ST=S0*Math.exp(drift+s1*sqT*boxMuller());
+        const pf=Math.max(ST-K,0)*disc;
+        s+=pf; s2+=pf*pf;
+      }
+      const mean=s/n;
+      const se=Math.sqrt((s2/n-mean*mean)/n);
+      prices.push(mean); errs.push(se);
+    }
+    drawConv(Ns, prices, errs, bs);
+    document.getElementById('conv-hint').innerHTML =
+      `<strong>Cyan line</strong> = MC estimate. <strong>Magenta dashes</strong> = BS analytical = ${bs.toFixed(4)}.
+       Shaded band = ±2σ confidence. The error decays as <strong>O(1/√N)</strong> by the CLT.`;
+    btn.innerHTML = '↗ Convergence Plot';
+    btn.classList.remove('loading');
+  }, 10);
+}
+
+// ─────────────────────────────────────────────────────────────
+// CANVAS HELPERS
+// ─────────────────────────────────────────────────────────────
+function css(v) {
+  return getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+}
+
+function setupCanvas(id, H) {
+  const c = document.getElementById(id);
+  const W = c.parentElement.clientWidth - 36;
+  const dpr = window.devicePixelRatio || 1;
+  c.width  = W*dpr; c.height = H*dpr;
+  c.style.height = H+'px';
+  const ctx = c.getContext('2d');
+  ctx.scale(dpr, dpr);
+  return {ctx, W, H};
+}
+
+// ─────────────────────────────────────────────────────────────
+// DRAW PATHS
+// ─────────────────────────────────────────────────────────────
+function drawPaths(paths) {
+  if (!paths||!paths.length) return;
+  const {ctx, W, H} = setupCanvas('c-paths', 200);
+
+  const bg3   = css('--bg3');
+  const bord  = css('--border');
+  const t2    = css('--text2');
+  const yel   = css('--yellow');
+  ctx.fillStyle = bg3;
+  ctx.fillRect(0, 0, W, H);
+
+  const ns = paths[0].length;
+  let mn=Infinity, mx=-Infinity;
+  for (const p of paths) for (const v of p) { if(v<mn)mn=v; if(v>mx)mx=v; }
+  mn*=.96; mx*=1.04;
+
+  const pad={l:46,r:22,t:10,b:28};
+  const cW=W-pad.l-pad.r, cH=H-pad.t-pad.b;
+  const toX = i => pad.l+(i/(ns-1))*cW;
+  const toY = v => pad.t+cH-((v-mn)/(mx-mn))*cH;
+
+  // Y grid
+  ctx.lineWidth=.5; ctx.strokeStyle=bord;
+  ctx.font='10px monospace'; ctx.textAlign='right'; ctx.fillStyle=t2;
+  for (let i=0;i<=4;i++){
+    const y=pad.t+(i/4)*cH;
+    ctx.beginPath(); ctx.moveTo(pad.l,y); ctx.lineTo(pad.l+cW,y); ctx.stroke();
+    ctx.fillText(((mx-(i/4)*(mx-mn))).toFixed(0), pad.l-4, y+4);
+  }
+
+  // X axis ticks
+  ctx.textAlign='center';
+  for (let i=0;i<=4;i++){
+    const x=pad.l+(i/4)*cW;
+    const tval=(i/4*P.T).toFixed(1);
+    ctx.fillText(tval, x, pad.t+cH+16);
+  }
+  ctx.fillText('t (years)', pad.l+cW/2, H-2);
+
+  // Strike line
+  const ky = toY(P.K);
+  if (ky>pad.t && ky<pad.t+cH) {
+    ctx.save();
+    ctx.strokeStyle=yel; ctx.setLineDash([5,3]); ctx.lineWidth=1.2;
+    ctx.beginPath(); ctx.moveTo(pad.l,ky); ctx.lineTo(pad.l+cW,ky); ctx.stroke();
+    ctx.setLineDash([]); ctx.fillStyle=yel;
+    ctx.font='9px monospace'; ctx.textAlign='left';
+    ctx.fillText('K='+P.K, pad.l+cW+2, ky+3);
+    ctx.restore();
+  }
+
+  // Paths — gradient from cyan → magenta
+  const n = paths.length;
+  for (let i=0;i<n;i++){
+    const t=i/Math.max(n-1,1);
+    // interpolate  #00eeff → #ff2d78
+    const rr=Math.round(t*255);
+    const gg=Math.round((1-t)*80);
+    const bb=Math.round((1-t)*255 + t*120);
+    ctx.strokeStyle=`rgba(${rr},${gg},${bb},0.45)`;
+    ctx.lineWidth=0.9;
+    ctx.beginPath();
+    for (let j=0;j<ns;j++){
+      const x=toX(j), y=toY(paths[i][j]);
+      j===0 ? ctx.moveTo(x,y) : ctx.lineTo(x,y);
+    }
+    ctx.stroke();
+  }
+
+  // Axis label S(t)
+  ctx.save();
+  ctx.translate(11, pad.t+cH/2);
+  ctx.rotate(-Math.PI/2);
+  ctx.fillStyle=t2; ctx.font='10px monospace'; ctx.textAlign='center';
+  ctx.fillText('S(t)', 0, 0);
+  ctx.restore();
+}
+
+// ─────────────────────────────────────────────────────────────
+// DRAW DISTRIBUTION
+// ─────────────────────────────────────────────────────────────
+function drawDist(ST) {
+  if (!ST||!ST.length) return;
+  const {ctx, W, H} = setupCanvas('c-dist', 180);
+
+  const bg3=css('--bg3'), bord=css('--border'), t2=css('--text2');
+  const cyan=css('--cyan'), yel=css('--yellow');
+  ctx.fillStyle=bg3; ctx.fillRect(0,0,W,H);
+
+  const nBins=55;
+  let mn=Infinity, mx=-Infinity;
+  for (let i=0;i<ST.length;i++){if(ST[i]<mn)mn=ST[i];if(ST[i]>mx)mx=ST[i];}
+  mn=mn*.98; mx=mx*1.02;
+
+  const bw=(mx-mn)/nBins;
+  const bins=new Array(nBins).fill(0);
+  for (let i=0;i<ST.length;i++){
+    const bi=Math.min(nBins-1,Math.floor((ST[i]-mn)/bw));
+    bins[bi]++;
+  }
+  const maxB=Math.max(...bins);
+
+  const pad={l:40,r:10,t:14,b:30};
+  const cW=W-pad.l-pad.r, cH=H-pad.t-pad.b;
+  const toX = v => pad.l+((v-mn)/(mx-mn))*cW;
+  const toY = cnt => pad.t+cH-(cnt/maxB)*cH;
+
+  for (let i=0;i<nBins;i++){
+    const x=pad.l+(i/nBins)*cW;
+    const bwPx=cW/nBins;
+    const center=mn+(i+.5)*bw;
+    const y=toY(bins[i]);
+    if (center>P.K){
+      ctx.fillStyle=cyan+'70';
+      ctx.strokeStyle=cyan+'aa';
+    } else {
+      ctx.fillStyle=bord+'cc';
+      ctx.strokeStyle=bord;
+    }
+    ctx.fillRect(x, y, bwPx-.5, pad.t+cH-y);
+    ctx.lineWidth=.4;
+    ctx.strokeRect(x, y, bwPx-.5, pad.t+cH-y);
+  }
+
+  // Strike line
+  const kx=toX(P.K);
+  if(kx>pad.l&&kx<pad.l+cW){
+    ctx.save();
+    ctx.strokeStyle=yel; ctx.setLineDash([4,3]); ctx.lineWidth=1.3;
+    ctx.beginPath(); ctx.moveTo(kx,pad.t); ctx.lineTo(kx,pad.t+cH); ctx.stroke();
+    ctx.setLineDash([]); ctx.fillStyle=yel;
+    ctx.font='9px monospace'; ctx.textAlign='center';
+    ctx.fillText('K', kx, pad.t-2);
+    ctx.restore();
+  }
+
+  // X axis
+  ctx.fillStyle=t2; ctx.font='9px monospace'; ctx.textAlign='center';
+  for(let i=0;i<=3;i++){
+    const v=mn+(i/3)*(mx-mn);
+    const x=toX(v);
+    ctx.fillText(v.toFixed(0), x, pad.t+cH+14);
+  }
+  ctx.fillText('S(T)', pad.l+cW/2, H-1);
+
+  // Y label
+  ctx.save();
+  ctx.translate(10, pad.t+cH/2);
+  ctx.rotate(-Math.PI/2);
+  ctx.fillText('count', 0, 0);
+  ctx.restore();
+}
+
+// ─────────────────────────────────────────────────────────────
+// DRAW CONVERGENCE
+// ─────────────────────────────────────────────────────────────
+function drawConv(Ns, prices, errs, bsPrice) {
+  const {ctx, W, H} = setupCanvas('c-conv', 180);
+
+  const bg3=css('--bg3'), bord=css('--border'), t2=css('--text2');
+  const cyan=css('--cyan'), mag=css('--magenta');
+  ctx.fillStyle=bg3; ctx.fillRect(0,0,W,H);
+
+  const pad={l:50,r:18,t:14,b:30};
+  const cW=W-pad.l-pad.r, cH=H-pad.t-pad.b;
+
+  let mn = Math.min(bsPrice, ...prices.map((p,i)=>p-2.2*errs[i]))*0.97;
+  let mx = Math.max(bsPrice, ...prices.map((p,i)=>p+2.2*errs[i]))*1.03;
+  mn = Math.min(mn, bsPrice*0.9);
+  mx = Math.max(mx, bsPrice*1.1);
+
+  const logMin=Math.log(Ns[0]), logMax=Math.log(Ns[Ns.length-1]);
+  const toX = n => pad.l+(Math.log(n)-logMin)/(logMax-logMin)*cW;
+  const toY = v => pad.t+cH-((v-mn)/(mx-mn))*cH;
+
+  // Grid
+  ctx.lineWidth=.5; ctx.strokeStyle=bord;
+  ctx.fillStyle=t2; ctx.font='9px monospace'; ctx.textAlign='right';
+  for(let i=0;i<=4;i++){
+    const y=pad.t+(i/4)*cH;
+    ctx.beginPath();ctx.moveTo(pad.l,y);ctx.lineTo(pad.l+cW,y);ctx.stroke();
+    ctx.fillText((mx-(i/4)*(mx-mn)).toFixed(2), pad.l-3, y+4);
+  }
+
+  // BS line
+  const bsY=toY(bsPrice);
+  ctx.save();
+  ctx.strokeStyle=mag; ctx.setLineDash([6,3]); ctx.lineWidth=1.5;
+  ctx.beginPath();ctx.moveTo(pad.l,bsY);ctx.lineTo(pad.l+cW,bsY);ctx.stroke();
+  ctx.setLineDash([]); ctx.fillStyle=mag; ctx.font='9px monospace'; ctx.textAlign='left';
+  ctx.fillText('BS='+bsPrice.toFixed(3), pad.l+cW-55, bsY-4);
+  ctx.restore();
+
+  // Confidence band ±2σ
+  ctx.fillStyle=cyan+'20';
+  ctx.beginPath();
+  ctx.moveTo(toX(Ns[0]), toY(prices[0]+2*errs[0]));
+  for(let i=0;i<Ns.length;i++) ctx.lineTo(toX(Ns[i]), toY(prices[i]+2*errs[i]));
+  for(let i=Ns.length-1;i>=0;i--) ctx.lineTo(toX(Ns[i]), toY(prices[i]-2*errs[i]));
+  ctx.closePath(); ctx.fill();
+
+  // MC line
+  ctx.strokeStyle=cyan; ctx.lineWidth=2;
+  ctx.beginPath();
+  for(let i=0;i<Ns.length;i++){
+    const x=toX(Ns[i]),y=toY(prices[i]);
+    i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
+  }
+  ctx.stroke();
+
+  // Dots
+  for(let i=0;i<Ns.length;i++){
+    ctx.fillStyle=cyan;
+    ctx.beginPath();ctx.arc(toX(Ns[i]),toY(prices[i]),3,0,Math.PI*2);ctx.fill();
+  }
+
+  // X labels
+  ctx.fillStyle=t2; ctx.font='9px monospace'; ctx.textAlign='center';
+  const xlabs=[500,2000,10000,50000,200000];
+  for(const n of xlabs){
+    if(n>=Ns[0]&&n<=Ns[Ns.length-1]){
+      ctx.fillText(n>=1000?(n/1000)+'k':n, toX(n), pad.t+cH+14);
+    }
+  }
+  ctx.fillText('N paths (log scale)', pad.l+cW/2, H-2);
+
+  // Y label
+  ctx.save();
+  ctx.translate(10, pad.t+cH/2);
+  ctx.rotate(-Math.PI/2);
+  ctx.fillText('price', 0, 0);
+  ctx.restore();
+}
+
+// ─────────────────────────────────────────────────────────────
+// EQUATIONS (KaTeX)
+// ─────────────────────────────────────────────────────────────
+const EQ_SINGLE = [
+  {
+    tag: '1 — Geometric Brownian Motion (SDE)',
+    body: `\\(dS = rS\\,dt + \\sigma S\\,dW_t\\)`,
+    note: 'Under the risk-neutral measure ℚ. <em>W_t</em> is a standard Brownian motion, <em>r</em> = risk-free rate, <em>σ</em> = volatility.'
+  },
+  {
+    tag: "2 — Exact solution (Itô's lemma)",
+    body: `\\(S(T)=S_0\\exp\\!\\Bigl[\\bigl(r-\\tfrac{\\sigma^2}{2}\\bigr)T+\\sigma\\sqrt{T}\\,Z\\Bigr]\\)`,
+    note: '\\(Z\\sim\\mathcal{N}(0,1)\\). No time-stepping error — the GBM SDE has an exact log-normal solution.'
+  },
+  {
+    tag: '3 — Monte Carlo estimator',
+    body: `\\(\\hat{C}_{\\!MC}=e^{-rT}\\frac{1}{N}\\sum_{i=1}^{N}\\max\\!\\bigl(S^{(i)}(T)-K,\\,0\\bigr)\\)`,
+    note: 'Standard error \\(=\\sigma_{\\!\\text{payoff}}/\\sqrt{N}\\) decays as \\(\\mathcal{O}(1/\\sqrt{N})\\) — the fundamental CLT rate.'
+  },
+  {
+    tag: '4 — Black-Scholes analytical price',
+    body: `\\(C=S_0\\Phi(d_1)-Ke^{-rT}\\Phi(d_2)\\)
+           <br>\\(d_{1,2}=\\dfrac{\\ln(S_0/K)+(r\\pm\\tfrac{\\sigma^2}{2})T}{\\sigma\\sqrt{T}}\\)`,
+    note: 'Closed-form reference solution. Used as <em>ground truth</em> to validate the MC engine and plot the convergence error.'
+  }
+];
+
+const EQ_BASKET = [
+  {
+    tag: '1 — Correlated GBM (N assets)',
+    body: `\\(dS_i = rS_i\\,dt + \\sigma_i S_i\\,dW_i,\\quad dW_i\\,dW_j = \\rho_{ij}\\,dt\\)`,
+    note: 'Correlated Brownian motions under ℚ. The correlation structure is encoded in the matrix R, with R<sub>ij</sub> = ρ<sub>ij</sub>.'
+  },
+  {
+    tag: '2 — Cholesky decomposition',
+    body: `\\(R=LL^\\top,\\quad \\mathbf{W}=L\\,\\mathbf{Z}_{iid},\\;\\mathbf{Z}_{iid}\\sim\\mathcal{N}(0,I)\\)`,
+    note: 'Cholesky maps i.i.d. normals to correlated ones. For 2 assets: \\(L=\\bigl(\\begin{smallmatrix}\\sigma_1&0\\\\ \\rho\\sigma_2&\\sigma_2\\sqrt{1-\\rho^2}\\end{smallmatrix}\\bigr)\\).'
+  },
+  {
+    tag: '3 — Arithmetic basket payoff',
+    body: `\\(\\hat{C}=e^{-rT}\\mathbb{E}\\!\\left[\\max\\!\\left(\\frac{S_1(T)+S_2(T)}{2}-K,0\\right)\\right]\\)`,
+    note: 'The arithmetic mean A_T is a sum of log-normals — <em>no closed form exists</em>. Monte Carlo is the standard numerical approach.'
+  },
+  {
+    tag: '4 — Geometric basket (analytical ref.)',
+    body: `\\(G_T=\\sqrt{S_1(T)S_2(T)}\\sim\\text{LogNormal}\\)
+           <br>\\(\\sigma_G=\\sqrt{\\tfrac{1}{2}(\\sigma_1^2+\\sigma_2^2+2\\rho\\sigma_1\\sigma_2)}\\)`,
+    note: 'The geometric basket is itself log-normal and admits an exact BS formula with effective vol σ_G. Used here as analytical reference.'
+  }
+];
+
+function buildEquations() {
+  const eqs = TAB===0 ? EQ_SINGLE : EQ_BASKET;
+  const html = eqs.map(e=>`
+    <div class="eq-card">
+      <div class="eq-tag">${e.tag}</div>
+      <div class="eq-body">${e.body}</div>
+      <div class="eq-note">${e.note}</div>
+    </div>`).join('');
+  document.getElementById('eq-grid').innerHTML = html;
+
+  if (window.renderMathInElement) {
+    renderMathInElement(document.getElementById('eq-grid'), {
+      delimiters: [
+        {left:'\\(',right:'\\)',display:false},
+        {left:'\\[',right:'\\]',display:true}
+      ],
+      throwOnError: false
+    });
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+// INIT
+// ─────────────────────────────────────────────────────────────
+window.addEventListener('load', () => {
+  buildEquations();
+  runSim();
+});
+
+window.addEventListener('resize', () => {
+  if (lastPaths) drawPaths(lastPaths);
+  if (lastST)   drawDist(lastST);
+});
+</script>
+</body>
+</html>
