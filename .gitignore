@@ -24,11 +24,14 @@ market_data_cache.pkl
 .ipynb_checkpoints/
 
 # Editor
+.claude/
 .vscode/
 .idea/
 *.swp
 *.swo
-
+*.tex
+*.txt
+*.pdf
 # OS
 .DS_Store
 Thumbs.db
